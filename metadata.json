@@ -1,0 +1,9 @@
+{
+  "name": "Dari Native Bridge",
+  "description": "A sophisticated AI-powered localization tool that transforms text, images, and media into authentic, contextually accurate Afghan Dari. Designed for precision and linguistic sensitivity, the Bridge ensures your content resonates naturally with native speakers.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": []
+}
