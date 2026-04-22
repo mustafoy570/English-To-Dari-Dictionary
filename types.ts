@@ -9,6 +9,11 @@ export enum TranslationTone {
   INFORMAL = 'INFORMAL'
 }
 
+export enum TranslationDirection {
+  ANY_TO_DARI = 'ANY_TO_DARI',
+  DARI_TO_ENGLISH = 'DARI_TO_ENGLISH'
+}
+
 export interface GroundingSource {
   title: string;
   uri: string;

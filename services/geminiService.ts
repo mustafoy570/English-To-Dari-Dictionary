@@ -1,8 +1,25 @@
 
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { LocalizationResult, TranslationTone, GroundingSource } from "../types";
+import { LocalizationResult, TranslationTone, GroundingSource, TranslationDirection } from "../types";
 
-const SYSTEM_INSTRUCTION = `
+const getSystemInstruction = (direction: TranslationDirection): string => {
+  if (direction === TranslationDirection.DARI_TO_ENGLISH) {
+    return `
+You are the "Dari Native Bridge," a specialized linguistic AI expert.
+Your goal is to translate text from authentic, native Dari (Afghan Persian) into natural, fluent English.
+Maintain the cultural nuance and meaning of the original Dari.
+
+Output format MUST be a JSON object:
+{
+  "sourceLanguage": "Dari (Native Afghan)",
+  "targetLanguage": "English",
+  "dariTranslation": "The English translation",
+  "transliteration": "Optional: Latin script transliteration of the Dari input",
+  "localizationNotes": ["Array of strings explaining specific cultural or idiomatic aspects of the Dari input"]
+}
+`;
+  }
+  return `
 You are the "Dari Native Bridge," a specialized linguistic AI expert. Your primary goal is to localize and translate text from any world language into authentic, native Dari (Afghan Persian). 
 You prioritize "Dari-first" native Afghan vocabulary, avoiding Iranian-specific neologisms or textbook Persian.
 
@@ -20,6 +37,7 @@ Output format MUST be a JSON object:
   "localizationNotes": ["Array of strings explaining specific word choices and cultural nuances relative to the source language"]
 }
 `;
+};
 
 async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Promise<T> {
   try {
@@ -35,13 +53,13 @@ async function withRetry<T>(fn: () => Promise<T>, retries = 3, delay = 1000): Pr
   }
 }
 
-export const localizeText = async (text: string, tone: TranslationTone, useSearch = false): Promise<LocalizationResult> => {
+export const localizeText = async (text: string, tone: TranslationTone, useSearch = false, direction: TranslationDirection = TranslationDirection.ANY_TO_DARI): Promise<LocalizationResult> => {
   return withRetry(async () => {
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const modelName = "gemini-3-pro-preview";
+    const modelName = "gemini-2.0-flash-exp";
     
     const config: any = {
-      systemInstruction: SYSTEM_INSTRUCTION,
+      systemInstruction: getSystemInstruction(direction),
     };
 
     if (useSearch) {
@@ -63,7 +81,7 @@ export const localizeText = async (text: string, tone: TranslationTone, useSearc
 
     const response = await ai.models.generateContent({
       model: modelName,
-      contents: `Translate the following into native Afghan Dari (${tone.toLowerCase()} tone): "${text}".
+      contents: `Translate the following ${direction === TranslationDirection.DARI_TO_ENGLISH ? 'from Dari to English' : 'into native Afghan Dari'} (${tone.toLowerCase()} tone): "${text}".
       
       ${useSearch ? `IMPORTANT: Use the Google Search tool to find exactly 3 high-quality web references (articles, facts, or image-hosting sources) that ground the context of this specific translation for an Afghan audience. These must be reflected in your grounding metadata.` : ""}
       
@@ -132,12 +150,12 @@ export const getExpertAnalysis = async (translatedText: string, sourceText: stri
   });
 };
 
-export const localizeFile = async (base64: string, mimeType: string, prompt: string, tone: TranslationTone): Promise<LocalizationResult> => {
+export const localizeFile = async (base64: string, mimeType: string, prompt: string, tone: TranslationTone, direction: TranslationDirection = TranslationDirection.ANY_TO_DARI): Promise<LocalizationResult> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
-    model: "gemini-3-pro-preview",
-    contents: { parts: [{ inlineData: { data: base64, mimeType: mimeType } }, { text: `${prompt} Localize the content into native Afghan Dari (${tone.toLowerCase()} tone).` }] },
-    config: { systemInstruction: SYSTEM_INSTRUCTION, responseMimeType: "application/json" }
+    model: "gemini-2.0-flash-exp",
+    contents: { parts: [{ inlineData: { data: base64, mimeType: mimeType } }, { text: `${prompt} Localize/translate the content ${direction === TranslationDirection.DARI_TO_ENGLISH ? 'from Dari to English' : 'into native Afghan Dari'} (${tone.toLowerCase()} tone).` }] },
+    config: { systemInstruction: getSystemInstruction(direction), responseMimeType: "application/json" }
   });
   return JSON.parse(response.text || '{}');
 };

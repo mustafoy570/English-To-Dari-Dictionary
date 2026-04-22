@@ -1,9 +1,9 @@
 
-import React, { useState, useRef } from 'react';
-import { TranslationMode, TranslationTone } from '../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { TranslationMode, TranslationTone, TranslationDirection } from '../types';
 
 interface Props {
-  onTranslate: (data: { text?: string; file?: File; mode: TranslationMode; tone: TranslationTone; useSearch: boolean }) => void;
+  onTranslate: (data: { text?: string; file?: File; mode: TranslationMode; tone: TranslationTone; useSearch: boolean; direction: TranslationDirection }) => void;
   onStop: () => void;
   loading: boolean;
 }
@@ -11,6 +11,7 @@ interface Props {
 const TranslationInput: React.FC<Props> = ({ onTranslate, onStop, loading }) => {
   const [mode, setMode] = useState<TranslationMode>(TranslationMode.TEXT);
   const [tone, setTone] = useState<TranslationTone>(TranslationTone.INFORMAL);
+  const [direction, setDirection] = useState<TranslationDirection>(TranslationDirection.ANY_TO_DARI);
   const [useSearch, setUseSearch] = useState(false);
   const [text, setText] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -20,6 +21,22 @@ const TranslationInput: React.FC<Props> = ({ onTranslate, onStop, loading }) => 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
 
+  useEffect(() => {
+    const saved = localStorage.getItem('bridge_prefs');
+    if (saved) {
+      try {
+        const { tone, direction, useSearch } = JSON.parse(saved);
+        if (tone) setTone(tone);
+        if (direction) setDirection(direction);
+        if (useSearch !== undefined) setUseSearch(useSearch);
+      } catch (e) { console.error('Failed to parse prefs:', e); }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('bridge_prefs', JSON.stringify({ tone, direction, useSearch }));
+  }, [tone, direction, useSearch]);
+
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (loading) {
@@ -27,9 +44,9 @@ const TranslationInput: React.FC<Props> = ({ onTranslate, onStop, loading }) => 
       return;
     }
     if (mode === TranslationMode.TEXT && text.trim()) {
-      onTranslate({ text, mode, tone, useSearch });
+      onTranslate({ text, mode, tone, useSearch, direction });
     } else if (file) {
-      onTranslate({ file, mode, tone, useSearch });
+      onTranslate({ file, mode, tone, useSearch, direction });
     }
   };
 
@@ -82,71 +99,69 @@ const TranslationInput: React.FC<Props> = ({ onTranslate, onStop, loading }) => 
   return (
     <div className="bg-white rounded-[1.5rem] shadow-xl border border-gray-100 overflow-hidden">
       {/* Tab Header */}
-      <div className="flex bg-gray-50 border-b border-gray-100">
+      <div className="flex border-b border-gray-200">
         <button
           onClick={() => { setMode(TranslationMode.TEXT); setIsRecording(false); }}
-          className={`flex-1 py-2 text-[10px] font-black tracking-widest transition-all ${mode === TranslationMode.TEXT ? 'text-emerald-600 bg-white' : 'text-gray-400'}`}
+          className={`flex-1 py-4 text-sm font-semibold transition-all ${mode === TranslationMode.TEXT ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 hover:bg-gray-50'}`}
         >
-          TEXT BRIDGE
+          Text Translation
         </button>
         <button
           onClick={() => setMode(TranslationMode.MEDIA)}
-          className={`flex-1 py-2 text-[10px] font-black tracking-widest transition-all ${mode === TranslationMode.MEDIA ? 'text-emerald-600 bg-white' : 'text-gray-400'}`}
+          className={`flex-1 py-4 text-sm font-semibold transition-all ${mode === TranslationMode.MEDIA ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500 hover:bg-gray-50'}`}
         >
-          MEDIA BRIDGE
+          Media/File Translation
         </button>
       </div>
 
-      <div className="p-4 space-y-4">
-        {/* Compact Settings Bar */}
-        <div className="flex items-center justify-between">
-          <div className="flex bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setTone(TranslationTone.FORMAL)}
-              className={`px-4 py-1 text-[8px] font-black tracking-tighter rounded-md transition-all ${tone === TranslationTone.FORMAL ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400'}`}
+      <div className="p-6 space-y-6">
+        {/* Settings Bar */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-between">
+          <div className="flex gap-2">
+            <select
+              value={direction}
+              onChange={(e) => setDirection(e.target.value as TranslationDirection)}
+              className="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
             >
-              FORMAL
-            </button>
-            <button
-              onClick={() => setTone(TranslationTone.INFORMAL)}
-              className={`px-4 py-1 text-[8px] font-black tracking-tighter rounded-md transition-all ${tone === TranslationTone.INFORMAL ? 'bg-white text-emerald-600 shadow-sm' : 'text-gray-400'}`}
+              <option value={TranslationDirection.ANY_TO_DARI}>Any → Dari</option>
+              <option value={TranslationDirection.DARI_TO_ENGLISH}>Dari → English</option>
+            </select>
+            
+            <select
+              value={tone}
+              onChange={(e) => setTone(e.target.value as TranslationTone)}
+              className="px-3 py-2 text-sm font-medium border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
             >
-              INFORMAL
-            </button>
+              <option value={TranslationTone.FORMAL}>Formal</option>
+              <option value={TranslationTone.INFORMAL}>Informal</option>
+            </select>
           </div>
 
           <button 
             onClick={() => setUseSearch(!useSearch)}
-            className={`flex items-center space-x-1.5 px-2.5 py-1 rounded-lg border text-[8px] font-black uppercase tracking-widest transition-all ${useSearch ? 'bg-emerald-50 border-emerald-200 text-emerald-600' : 'bg-white border-gray-100 text-gray-400'}`}
+            className={`px-4 py-2 text-sm font-medium rounded-lg border flex items-center gap-2 ${useSearch ? 'bg-emerald-100 border-emerald-300 text-emerald-800' : 'bg-white border-gray-300 text-gray-600'}`}
           >
-            <div className={`w-1.5 h-1.5 rounded-full ${useSearch ? 'bg-emerald-500 animate-pulse' : 'bg-gray-200'}`} />
-            <span>Fact Check</span>
+            Fact Check: {useSearch ? 'On' : 'Off'}
           </button>
         </div>
 
         {/* Input Area */}
         {mode === TranslationMode.TEXT ? (
-          <div className="flex items-end gap-2 bg-gray-50/50 p-3 rounded-xl border border-gray-100 focus-within:ring-2 focus-within:ring-emerald-500/10 transition-all">
+          <div className="space-y-4">
             <textarea
-              className="flex-grow bg-transparent border-0 text-sm font-medium outline-none resize-none placeholder:text-gray-300 min-h-[80px] leading-relaxed"
-              placeholder="Enter text from any world language..."
+              className="w-full p-4 text-base font-normal border border-gray-300 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 min-h-[150px]"
+              placeholder="Enter text here..."
               value={text}
               disabled={loading}
               onChange={(e) => setText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSubmit(); } }}
             />
             
             <button
               onClick={() => handleSubmit()}
               disabled={loading || !text.trim()}
-              className={`shrink-0 w-12 h-12 flex items-center justify-center rounded-xl transition-all shadow-md ${loading ? 'bg-red-50 text-red-500 shadow-red-100' : 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 shadow-emerald-100'}`}
-              title="Localize to Dari"
+              className={`w-full py-3 text-base font-bold text-white rounded-xl ${loading ? 'bg-gray-400' : 'bg-emerald-600 hover:bg-emerald-700'}`}
             >
-              {loading ? (
-                <div className="w-4 h-4 border-2 border-red-200 border-t-red-600 rounded-full animate-spin" />
-              ) : (
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-              )}
+              {loading ? 'Translating...' : 'Translate'}
             </button>
           </div>
         ) : (
